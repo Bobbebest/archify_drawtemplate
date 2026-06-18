@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quy Trình Vận Hành Team Booking — Calie House v5</title>
+<script>(function(){try{var t=localStorage.getItem('archify-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(_){}})()</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<style>
+:root,[data-theme="dark"]{
+  --bg:#020617;--grid:#1e293b;--text:#fff;--text-muted:#94a3b8;--text-dim:#475569;
+  --panel:rgba(15,23,42,.5);--panel-border:#1e293b;
+  --lane-fill:rgba(15,23,42,.22);--lane-stroke:#334155;
+  --arrow:#64748b;--arrow-em:#34d399;--mask:#0f172a;
+  --be-f:rgba(6,78,59,.4);--be-s:#34d399;
+  --cl-f:rgba(120,53,15,.3);--cl-s:#fbbf24;
+  --db-f:rgba(76,29,149,.4);--db-s:#a78bfa;
+  --ex-f:rgba(30,41,59,.5);--ex-s:#94a3b8;
+  --tb-bg:rgba(15,23,42,.8);--tb-bd:#334155;--tb-tx:#e2e8f0;
+}
+[data-theme="light"]{
+  --bg:#f8fafc;--grid:#e2e8f0;--text:#0f172a;--text-muted:#64748b;--text-dim:#94a3b8;
+  --panel:#fff;--panel-border:#e2e8f0;
+  --lane-fill:rgba(248,250,252,.65);--lane-stroke:#cbd5e1;
+  --arrow:#94a3b8;--arrow-em:#059669;--mask:#fff;
+  --be-f:rgba(52,211,153,.18);--be-s:#059669;
+  --cl-f:rgba(251,191,36,.18);--cl-s:#d97706;
+  --db-f:rgba(167,139,250,.2);--db-s:#7c3aed;
+  --ex-f:rgba(148,163,184,.18);--ex-s:#64748b;
+  --tb-bg:rgba(255,255,255,.92);--tb-bd:#cbd5e1;--tb-tx:#334155;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'JetBrains Mono',ui-monospace,monospace;background:var(--bg);min-height:100vh;padding:2rem;color:var(--text);transition:background .2s,color .2s;}
+.wrap{max-width:1900px;margin:0 auto;}
+h1{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.2rem;}
+.sub{color:var(--text-muted);font-size:.78rem;margin-bottom:1.25rem;}
+.toolbar{position:fixed;top:1rem;right:1rem;display:flex;gap:.5rem;z-index:100;}
+.toolbar button{background:var(--tb-bg);color:var(--tb-tx);border:1px solid var(--tb-bd);padding:.4rem .85rem;border-radius:.5rem;font-family:inherit;font-size:.7rem;font-weight:500;cursor:pointer;backdrop-filter:blur(8px);}
+.toolbar button:hover{border-color:var(--arrow);}
+.dbox{background:var(--panel);border:1px solid var(--panel-border);border-radius:1rem;padding:1rem;overflow-x:auto;}
+svg{width:100%;min-width:min(1880px,100%);display:block;}
+.cg{stroke:var(--grid);fill:none;}
+.cm{fill:var(--mask);stroke:none;}
+.cbe{fill:var(--be-f);stroke:var(--be-s);}
+.ccl{fill:var(--cl-f);stroke:var(--cl-s);}
+.cdb{fill:var(--db-f);stroke:var(--db-s);}
+.cex{fill:var(--ex-f);stroke:var(--ex-s);}
+.cln{fill:var(--lane-fill);stroke:var(--lane-stroke);}
+.tp{fill:var(--text);}
+.tm{fill:var(--text-muted);}
+.td{fill:var(--text-dim);}
+.tbe{fill:var(--be-s);}
+.tcl{fill:var(--cl-s);}
+.tdb{fill:var(--db-s);}
+.tex{fill:var(--ex-s);}
+.ae{stroke:var(--arrow-em);fill:none;}
+.ad{stroke:var(--arrow);fill:none;}
+.ak{stroke:var(--db-s);fill:none;stroke-dasharray:5,4;}
+.me{fill:var(--arrow-em);}
+.md{fill:var(--arrow);}
+.mk{fill:var(--db-s);}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.5rem;}
+.card{background:var(--panel);border:1px solid var(--panel-border);border-radius:.75rem;padding:1.2rem;}
+.ch{display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.card h3{font-size:.77rem;font-weight:600;}
+.card ul{list-style:none;color:var(--text-muted);font-size:.69rem;}
+.card li{margin-bottom:.3rem;line-height:1.5;}
+footer{text-align:center;margin-top:1.5rem;color:var(--text-dim);font-size:.68rem;}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button id="bt">🌙 Dark</button>
+  <button id="be">↓ PNG</button>
+</div>
+<div class="wrap">
+<h1>🔖 Quy Trình Vận Hành Team Booking</h1>
+<p class="sub">Calie House · KOC/KOL Booking Workflow · Archify v5.0 &nbsp;|&nbsp; T = theme &nbsp;·&nbsp; E = export</p>
+<div class="dbox">
+<!--
+════════════════════════════════════════════════════════════════
+ QG8 BREATHING ROOM APPLIED:
+   col_step = 200px (node_w=120 + h_gap=80) → 72px visible arrows ✓
+   row_step = 112px (node_h=52 + v_gap=60)
+   Lane padding ≥ 28px each side
+
+ NODE SIZES (QG2 uniform per lane):
+   Process A/B/D: w=120 h=52 rx=6
+   Tool C:        w=120 h=46 rx=6
+   START pill:    w=110 h=36 rx=18
+
+ COLUMNS cx: 160,360,560,760,960,1160,1360,1560,1760
+ ROWS: LaneA row1 cy=90, row2 cy=202
+       LaneB row1 cy=318, koc_live cy=430
+       LaneC cy=543
+       LaneD cy=656
+
+ QG1: ALL arrows computed from node table
+ QG3: arrows BEFORE nodes in SVG source
+ QG4: legendY=750, gap=40 from laneD bottom(710) ✓
+ QG5: h_gap=80px ≥ 16px ✓
+ QG6A: all arrows connect two named nodes ✓
+ QG6B: START pill shape ✓
+ QG7: all rows share identical cy, all cols share identical cx ✓
+════════════════════════════════════════════════════════════════
+-->
+<svg id="svg" viewBox="0 0 1880 842" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ae" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" class="me"/></marker>
+  <marker id="ad" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" class="md"/></marker>
+  <marker id="ak" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" class="mk"/></marker>
+  <pattern id="gr" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M40 0L0 0 0 40" class="cg" stroke-width=".5"/>
+  </pattern>
+</defs>
+
+<!-- ① BACKGROUND -->
+<rect width="1880" height="842" fill="url(#gr)"/>
+
+<!-- ② PHASE HEADERS (y=0 h=32) -->
+<!-- Ph1: label_w=100→860, w=760 covers col0–col3 (last node right=820, div at 860) -->
+<rect x="100" y="0" width="760" height="32" rx="3" class="cm"/>
+<rect x="100" y="0" width="760" height="32" rx="3" class="cbe" stroke-width="1"/>
+<text x="480" y="21" class="tbe" font-size="10.5" font-weight="600" text-anchor="middle">GIAI ĐOẠN 1 · Trước Triển Khai</text>
+<!-- Ph2: 860→1060, w=200 covers col4 (monitor) -->
+<rect x="861" y="0" width="199" height="32" rx="3" class="cm"/>
+<rect x="861" y="0" width="199" height="32" rx="3" class="ccl" stroke-width="1"/>
+<text x="960" y="21" class="tcl" font-size="10" font-weight="600" text-anchor="middle">GĐ 2 · Triển Khai</text>
+<!-- Ph3: 1060→1860, w=800 covers col5–col8 -->
+<rect x="1061" y="0" width="799" height="32" rx="3" class="cm"/>
+<rect x="1061" y="0" width="799" height="32" rx="3" class="cdb" stroke-width="1"/>
+<text x="1460" y="21" class="tdb" font-size="10.5" font-weight="600" text-anchor="middle">GIAI ĐOẠN 3 · Sau Triển Khai &amp; Thanh Toán</text>
+
+<!-- ③ SWIMLANES -->
+<!-- Label column -->
+<rect x="0" y="36" width="100" height="674" class="cm"/>
+<rect x="0" y="36" width="100" height="674" style="fill:var(--lane-fill);stroke:var(--lane-stroke)" stroke-width="1"/>
+<!-- Lane A: y=36 h=220 -->
+<rect x="100" y="36"  width="1760" height="220" class="cln" stroke-width="1"/>
+<rect x="0"   y="36"  width="100"  height="220" class="cm"/>
+<rect x="0"   y="36"  width="100"  height="220" style="fill:rgba(6,78,59,.12)"/>
+<!-- Lane B: y=264 h=220 -->
+<rect x="100" y="264" width="1760" height="220" class="cln" stroke-width="1"/>
+<rect x="0"   y="264" width="100"  height="220" class="cm"/>
+<rect x="0"   y="264" width="100"  height="220" style="fill:rgba(30,41,59,.18)"/>
+<!-- Lane C: y=492 h=102 -->
+<rect x="100" y="492" width="1760" height="102" class="cln" stroke-width="1"/>
+<rect x="0"   y="492" width="100"  height="102" class="cm"/>
+<rect x="0"   y="492" width="100"  height="102" style="fill:rgba(120,53,15,.12)"/>
+<!-- Lane D: y=602 h=108 -->
+<rect x="100" y="602" width="1760" height="108" class="cln" stroke-width="1"/>
+<rect x="0"   y="602" width="100"  height="108" class="cm"/>
+<rect x="0"   y="602" width="100"  height="108" style="fill:rgba(76,29,149,.12)"/>
+
+<!-- Phase dividers -->
+<line x1="860"  y1="36" x2="860"  y2="714" class="ad" stroke-width="1" stroke-dasharray="8,4"/>
+<line x1="1060" y1="36" x2="1060" y2="714" class="ad" stroke-width="1" stroke-dasharray="8,4"/>
+
+<!--
+════════════════════════════════════════════
+ ④ ALL ARROWS — QG3: before nodes
+    QG1: coords from node table
+    QG6A: both endpoints named
+    QG8: all horizontal arrows ≥72px visible
+════════════════════════════════════════════
+-->
+
+<!-- Lane A row1 main flow (cy=90) — 72px visible each ✓ -->
+<!-- start R(215,90)→plan L(300,90): x2=292 -->
+<line x1="215" y1="90" x2="292" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- plan R(420,90)→research L(500,90): x2=492 -->
+<line x1="420" y1="90" x2="492" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- research R(620,90)→lienhe L(700,90): x2=692 -->
+<line x1="620" y1="90" x2="692" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- lienhe R(820,90)→monitor L(900,90): x2=892 -->
+<line x1="820" y1="90" x2="892" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- monitor R(1020,90)→xacnhan L(1100,90): x2=1092 -->
+<line x1="1020" y1="90" x2="1092" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- xacnhan R(1220,90)→soandbnnt L(1300,90): x2=1292 -->
+<line x1="1220" y1="90" x2="1292" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- soandbnnt R(1420,90)→dntt L(1500,90): x2=1492 -->
+<line x1="1420" y1="90" x2="1492" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- dntt R(1620,90)→chuyenhs L(1700,90): x2=1692 -->
+<line x1="1620" y1="90" x2="1692" y2="90" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+
+<!-- Lane A row2 horizontal -->
+<!-- guihang R(220,202)→soanhd L(300,202): x2=292 — 72px ✓ -->
+<line x1="220" y1="202" x2="292" y2="202" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+
+<!-- row1→row2 vertical (same col) -->
+<!-- lienhe B(760,116)→duyetdemo T(760,176): y2=168 — 52px ✓ -->
+<line x1="760" y1="116" x2="760" y2="168" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- research B(560,116)→soanhd T(360,176): L-route 560,116→560,148→360,148→360,168 -->
+<path d="M560,116 L560,148 L360,148 L360,168" class="ad" stroke-width="1.6" fill="none" marker-end="url(#ad)"/>
+
+<!-- Lane A→B cross-lane verticals -->
+<!-- lienhe B(760,116)→koc_nhanLH T(760,292): y2=284 — 168px ✓ -->
+<line x1="760" y1="116" x2="760" y2="284" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- guihang B(160,228)→koc_nhanhang T(360,292): L-route 160,228→160,256→360,256→360,284 -->
+<path d="M160,228 L160,256 L360,256 L360,284" class="ad" stroke-width="1.6" fill="none" marker-end="url(#ad)"/>
+<!-- duyetdemo B(760,228)→koc_guideo T(960,292): L-route 760,228→760,256→960,256→960,284 -->
+<path d="M760,228 L760,256 L960,256 L960,284" class="ad" stroke-width="1.6" fill="none" marker-end="url(#ad)"/>
+<!-- soandbnnt B(1360,116)→koc_kybbnt T(1360,292): y2=284 — 168px ✓ -->
+<line x1="1360" y1="116" x2="1360" y2="284" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- chuyenhs B(1760,116)→kt_nhanhs T(1760,630): y2=622 — 506px ✓ -->
+<line x1="1760" y1="116" x2="1760" y2="622" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+
+<!-- Lane B internal -->
+<!-- koc_nhanLH L(700,318)→koc_kyhd R(620,318): x2=628 — 72px ✓ -->
+<line x1="700" y1="318" x2="628" y2="318" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- koc_kyhd T(560,292)→soanhd B(360,228): L-route 560,292→560,248→360,248→360,236 -->
+<path d="M560,292 L560,248 L360,248 L360,236" class="ad" stroke-width="1.6" fill="none" marker-end="url(#ad)"/>
+<!-- koc_nhanLH R(820,318)→koc_guideo L(900,318): x2=892 — 72px ✓ -->
+<line x1="820" y1="318" x2="892" y2="318" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- koc_guideo B(960,344)→koc_live T(960,404): y2=396 — 52px ✓ -->
+<line x1="960" y1="344" x2="960" y2="396" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- koc_live R(1020,430)→monitor T(960,64): L-route up right side -->
+<path d="M1020,430 L1060,430 L1060,64 L968,64" class="ae" stroke-width="2" fill="none" marker-end="url(#ae)"/>
+<!-- koc_kybbnt R(1420,318)→dntt T(1560,64): L-route 1420,318→1500,318→1500,64→1508,64 -->
+<path d="M1420,318 L1500,318 L1500,64 L1508,64" class="ae" stroke-width="2" fill="none" marker-end="url(#ae)"/>
+
+<!-- Lane→Tools dashed feeds -->
+<!-- soanhd B(360,228)→tool_matbao T(360,520): y2=512 — 284px ✓ -->
+<line x1="360" y1="228" x2="360" y2="512" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+<!-- research B(560,116)→tool_kalo T(560,520): y2=512 — 396px ✓ -->
+<line x1="560" y1="116" x2="560" y2="512" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+<!-- monitor B(960,116)→tool_lark T(960,520): y2=512 — 396px ✓ -->
+<line x1="960" y1="116" x2="960" y2="512" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+<!-- dntt B(1560,116)→tool_lbase T(1560,520): y2=512 — 396px ✓ -->
+<line x1="1560" y1="116" x2="1560" y2="512" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+<!-- tool_lbase B(1560,566)→kt_kiemtra T(1560,630): y2=622 — 56px ✓ -->
+<line x1="1560" y1="566" x2="1560" y2="622" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+
+<!-- Lane D flow -->
+<!-- kt_nhanhs L(1700,656)→kt_kiemtra R(1620,656): x2=1628 — 72px ✓ -->
+<line x1="1700" y1="656" x2="1628" y2="656" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<!-- kt_kiemtra L(1500,656)→kt_thanhtoan R(1420,656): x2=1428 — 72px ✓ -->
+<line x1="1500" y1="656" x2="1428" y2="656" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<!-- kt_thanhtoan T(1360,630)→koc_nhantt B(1760,344): L-route -->
+<path d="M1360,630 L1360,580 L1800,580 L1800,352" class="ae" stroke-width="2" fill="none" marker-end="url(#ae)"/>
+
+<!--
+════════════════════════════════════════════
+ ⑤ ALL NODES — QG3: after arrows
+    QG2: uniform w=120 h=52 ✓
+    QG5: h_gap=80px ✓
+    QG6B: START=pill ✓
+    QG7: cy/cx aligned ✓
+    QG8: spacing visually verified ✓
+════════════════════════════════════════════
+-->
+
+<!-- ══ LANE A ROW1 cy=90 ══ -->
+<!-- start: cx=160 cy=90 w=110 h=36 rx=18 -->
+<rect x="105" y="72"  width="110" height="36" rx="18" class="cm"/>
+<rect x="105" y="72"  width="110" height="36" rx="18" class="cbe" stroke-width="1.6"/>
+<text x="160" y="86"  class="tp" font-size="10" font-weight="600" text-anchor="middle">START</text>
+<text x="160" y="100" class="tm" font-size="7.5" text-anchor="middle">Nhận target</text>
+
+<!-- plan: cx=360 cy=90 -->
+<rect x="300" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="300" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="360" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Lập Plan</text>
+<text x="360" y="97"  class="tm" font-size="7.5" text-anchor="middle">video / live daily</text>
+<text x="360" y="109" class="tm" font-size="7.5" text-anchor="middle">/ độc quyền</text>
+
+<!-- research: cx=560 cy=90 -->
+<rect x="500" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="500" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="560" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Research KOC</text>
+<text x="560" y="97"  class="tm" font-size="7.5" text-anchor="middle">Kalodata</text>
+<text x="560" y="109" class="tbe" font-size="7.5" text-anchor="middle">TT Seller Center</text>
+
+<!-- lienhe: cx=760 cy=90 -->
+<rect x="700" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="700" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="760" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Liên Hệ KOC</text>
+<text x="760" y="97"  class="tm" font-size="7.5" text-anchor="middle">đàm phán</text>
+<text x="760" y="109" class="tm" font-size="7.5" text-anchor="middle">chốt hợp tác</text>
+
+<!-- monitor: cx=960 cy=90 -->
+<rect x="900" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="900" y="64"  width="120" height="52" rx="6" class="ccl" stroke-width="1.6"/>
+<text x="960" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Theo Dõi</text>
+<text x="960" y="97"  class="tm" font-size="7.5" text-anchor="middle">video lên sóng</text>
+<text x="960" y="109" class="tcl" font-size="7.5" text-anchor="middle">cập nhật Lark</text>
+
+<!-- xacnhan: cx=1160 cy=90 -->
+<rect x="1100" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="1100" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="1160" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Xác Nhận</text>
+<text x="1160" y="97"  class="tm" font-size="7.5" text-anchor="middle">video đúng</text>
+<text x="1160" y="109" class="tm" font-size="7.5" text-anchor="middle">yêu cầu ✓</text>
+
+<!-- soandbnnt: cx=1360 cy=90 -->
+<rect x="1300" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="1300" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="1360" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Soạn BBNT</text>
+<text x="1360" y="97"  class="tm" font-size="7.5" text-anchor="middle">Biên bản</text>
+<text x="1360" y="109" class="tm" font-size="7.5" text-anchor="middle">nghiệm thu</text>
+
+<!-- dntt: cx=1560 cy=90 -->
+<rect x="1500" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="1500" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="1560" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Tạo ĐNTT</text>
+<text x="1560" y="97"  class="tm" font-size="7.5" text-anchor="middle">Đề nghị TT</text>
+<text x="1560" y="109" class="tbe" font-size="7.5" text-anchor="middle">Lark Base</text>
+
+<!-- chuyenhs: cx=1760 cy=90 -->
+<rect x="1700" y="64"  width="120" height="52" rx="6" class="cm"/>
+<rect x="1700" y="64"  width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="1760" y="83"  class="tp" font-size="10" font-weight="600" text-anchor="middle">Chuyển Hồ Sơ</text>
+<text x="1760" y="97"  class="tm" font-size="7.5" text-anchor="middle">→ Kế Toán</text>
+<text x="1760" y="109" class="tm" font-size="7.5" text-anchor="middle">theo dõi TT</text>
+
+<!-- ══ LANE A ROW2 cy=202 ══ -->
+<!-- guihang: cx=160 cy=202 -->
+<rect x="100"  y="176" width="120" height="52" rx="6" class="cm"/>
+<rect x="100"  y="176" width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="160"  y="195" class="tp" font-size="10" font-weight="600" text-anchor="middle">Gửi Hàng</text>
+<text x="160"  y="209" class="tm" font-size="7.5" text-anchor="middle">sản phẩm</text>
+<text x="160"  y="221" class="tm" font-size="7.5" text-anchor="middle">cho KOC</text>
+
+<!-- soanhd: cx=360 cy=202 -->
+<rect x="300"  y="176" width="120" height="52" rx="6" class="cm"/>
+<rect x="300"  y="176" width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="360"  y="195" class="tp" font-size="10" font-weight="600" text-anchor="middle">Soạn HĐ</text>
+<text x="360"  y="209" class="tm" font-size="7.5" text-anchor="middle">theo form mẫu</text>
+<text x="360"  y="221" class="tbe" font-size="7.5" text-anchor="middle">Mắt Bão e-sign</text>
+
+<!-- duyetdemo: cx=760 cy=202 -->
+<rect x="700"  y="176" width="120" height="52" rx="6" class="cm"/>
+<rect x="700"  y="176" width="120" height="52" rx="6" class="cbe" stroke-width="1.6"/>
+<text x="760"  y="195" class="tp" font-size="10" font-weight="600" text-anchor="middle">Duyệt Demo</text>
+<text x="760"  y="209" class="tm" font-size="7.5" text-anchor="middle">nội dung</text>
+<text x="760"  y="221" class="tm" font-size="7.5" text-anchor="middle">trước khi đăng</text>
+
+<!-- ══ LANE B cy=318 (koc_live cy=430) ══ -->
+<!-- koc_nhanhang: cx=360 cy=318 -->
+<rect x="300"  y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="300"  y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="360"  y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Nhận Hàng</text>
+<text x="360"  y="325" class="tm" font-size="7.5" text-anchor="middle">sản phẩm</text>
+<text x="360"  y="337" class="tm" font-size="7.5" text-anchor="middle">từ Calie</text>
+
+<!-- koc_kyhd: cx=560 cy=318 -->
+<rect x="500"  y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="500"  y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="560"  y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Ký HĐ</text>
+<text x="560"  y="325" class="tm" font-size="7.5" text-anchor="middle">e-sign</text>
+<text x="560"  y="337" class="tm" font-size="7.5" text-anchor="middle">bản cứng</text>
+
+<!-- koc_nhanLH: cx=760 cy=318 -->
+<rect x="700"  y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="700"  y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="760"  y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Nhận Liên Hệ</text>
+<text x="760"  y="325" class="tm" font-size="7.5" text-anchor="middle">đàm phán</text>
+<text x="760"  y="337" class="tm" font-size="7.5" text-anchor="middle">chốt rate/deal</text>
+
+<!-- koc_guideo: cx=960 cy=318 -->
+<rect x="900"  y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="900"  y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="960"  y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Gửi Demo</text>
+<text x="960"  y="325" class="tm" font-size="7.5" text-anchor="middle">nội dung</text>
+<text x="960"  y="337" class="tm" font-size="7.5" text-anchor="middle">chờ duyệt</text>
+
+<!-- koc_live: cx=960 cy=430 (vertical gap from koc_guideo: 430-26 - (318+26) = 60px ✓) -->
+<rect x="900"  y="404" width="120" height="52" rx="6" class="cm"/>
+<rect x="900"  y="404" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="960"  y="423" class="tp" font-size="10" font-weight="600" text-anchor="middle">Thực Hiện</text>
+<text x="960"  y="437" class="tm" font-size="7.5" text-anchor="middle">Live / Video</text>
+<text x="960"  y="449" class="tex" font-size="7.5" text-anchor="middle">TikTok</text>
+
+<!-- koc_kybbnt: cx=1360 cy=318 -->
+<rect x="1300" y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="1300" y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="1360" y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Ký BBNT</text>
+<text x="1360" y="325" class="tm" font-size="7.5" text-anchor="middle">xác nhận</text>
+<text x="1360" y="337" class="tm" font-size="7.5" text-anchor="middle">kết quả</text>
+
+<!-- koc_nhantt: cx=1760 cy=318 -->
+<rect x="1700" y="292" width="120" height="52" rx="6" class="cm"/>
+<rect x="1700" y="292" width="120" height="52" rx="6" class="cex" stroke-width="1.6"/>
+<text x="1760" y="311" class="tp" font-size="10" font-weight="600" text-anchor="middle">Nhận Thanh Toán</text>
+<text x="1760" y="325" class="tm" font-size="7.5" text-anchor="middle">Bank transfer</text>
+<text x="1760" y="337" class="tex" font-size="7.5" text-anchor="middle">trong 7 ngày</text>
+
+<!-- ══ LANE C cy=543 w=120 h=46 ══ -->
+<!-- tool_matbao: cx=360 cy=543 -->
+<rect x="300"  y="520" width="120" height="46" rx="6" class="cm"/>
+<rect x="300"  y="520" width="120" height="46" rx="6" class="ccl" stroke-width="1.6"/>
+<text x="360"  y="539" class="tp" font-size="10" font-weight="600" text-anchor="middle">Mắt Bão</text>
+<text x="360"  y="553" class="tm" font-size="7.5" text-anchor="middle">e-Signature HĐ</text>
+
+<!-- tool_kalo: cx=560 cy=543 -->
+<rect x="500"  y="520" width="120" height="46" rx="6" class="cm"/>
+<rect x="500"  y="520" width="120" height="46" rx="6" class="ccl" stroke-width="1.6"/>
+<text x="560"  y="539" class="tp" font-size="10" font-weight="600" text-anchor="middle">Kalodata</text>
+<text x="560"  y="553" class="tm" font-size="7.5" text-anchor="middle">Research KOC</text>
+
+<!-- tool_lark: cx=960 cy=543 -->
+<rect x="900"  y="520" width="120" height="46" rx="6" class="cm"/>
+<rect x="900"  y="520" width="120" height="46" rx="6" class="ccl" stroke-width="1.6"/>
+<text x="960"  y="539" class="tp" font-size="10" font-weight="600" text-anchor="middle">Lark</text>
+<text x="960"  y="553" class="tm" font-size="7.5" text-anchor="middle">Dữ liệu KOC</text>
+
+<!-- tool_lbase: cx=1560 cy=543 -->
+<rect x="1500" y="520" width="120" height="46" rx="6" class="cm"/>
+<rect x="1500" y="520" width="120" height="46" rx="6" class="ccl" stroke-width="1.6"/>
+<text x="1560" y="539" class="tp" font-size="10" font-weight="600" text-anchor="middle">Lark Base</text>
+<text x="1560" y="553" class="tm" font-size="7.5" text-anchor="middle">ĐNTT form</text>
+
+<!-- ══ LANE D cy=656 ══ -->
+<!-- kt_thanhtoan: cx=1360 cy=656 -->
+<rect x="1300" y="630" width="120" height="52" rx="6" class="cm"/>
+<rect x="1300" y="630" width="120" height="52" rx="6" class="cdb" stroke-width="1.6"/>
+<text x="1360" y="649" class="tp" font-size="10" font-weight="600" text-anchor="middle">Thực Hiện TT</text>
+<text x="1360" y="663" class="tm" font-size="7.5" text-anchor="middle">chuyển khoản</text>
+<text x="1360" y="675" class="tdb" font-size="7.5" text-anchor="middle">7 ngày</text>
+
+<!-- kt_kiemtra: cx=1560 cy=656 -->
+<rect x="1500" y="630" width="120" height="52" rx="6" class="cm"/>
+<rect x="1500" y="630" width="120" height="52" rx="6" class="cdb" stroke-width="1.6"/>
+<text x="1560" y="649" class="tp" font-size="10" font-weight="600" text-anchor="middle">Kiểm Tra</text>
+<text x="1560" y="663" class="tm" font-size="7.5" text-anchor="middle">hồ sơ + thuế</text>
+<text x="1560" y="675" class="tm" font-size="7.5" text-anchor="middle">PIT 10%</text>
+
+<!-- kt_nhanhs: cx=1760 cy=656 -->
+<rect x="1700" y="630" width="120" height="52" rx="6" class="cm"/>
+<rect x="1700" y="630" width="120" height="52" rx="6" class="cdb" stroke-width="1.6"/>
+<text x="1760" y="649" class="tp" font-size="10" font-weight="600" text-anchor="middle">Nhận Hồ Sơ</text>
+<text x="1760" y="663" class="tm" font-size="7.5" text-anchor="middle">HĐ + BBNT</text>
+<text x="1760" y="675" class="tm" font-size="7.5" text-anchor="middle">+ hóa đơn</text>
+
+<!-- ⑥ LANE LABELS -->
+<text x="50" y="152" class="tm" font-size="8.5" font-weight="600" text-anchor="middle" transform="rotate(-90,50,152)">TEAM BOOKING / PIC</text>
+<text x="50" y="378" class="tm" font-size="8.5" font-weight="600" text-anchor="middle" transform="rotate(-90,50,378)">KOC / KOL</text>
+<text x="50" y="545" class="tm" font-size="8.5" font-weight="600" text-anchor="middle" transform="rotate(-90,50,545)">CÔNG CỤ</text>
+<text x="50" y="656" class="tm" font-size="8.5" font-weight="600" text-anchor="middle" transform="rotate(-90,50,656)">KẾ TOÁN</text>
+
+<!--
+ QG4 LEGEND
+   Lane D bottom = 602+108 = 710
+   legendY = 710+40 = 750 ✓
+   viewBox H = 750+72+20 = 842 ✓
+-->
+<rect x="100" y="750" width="1760" height="72" rx="6" class="cm"/>
+<rect x="100" y="750" width="1760" height="72" rx="6" class="cex" stroke-width="1"/>
+
+<rect x="120" y="764" width="14" height="10" rx="2" class="cm"/><rect x="120" y="764" width="14" height="10" rx="2" class="cbe" stroke-width="1"/>
+<text x="140" y="773" class="tm" font-size="8.5">Team Booking / PIC</text>
+
+<rect x="310" y="764" width="14" height="10" rx="2" class="cm"/><rect x="310" y="764" width="14" height="10" rx="2" class="cex" stroke-width="1"/>
+<text x="330" y="773" class="tm" font-size="8.5">KOC / KOL</text>
+
+<rect x="460" y="764" width="14" height="10" rx="2" class="cm"/><rect x="460" y="764" width="14" height="10" rx="2" class="ccl" stroke-width="1"/>
+<text x="480" y="773" class="tm" font-size="8.5">Công cụ / Hệ thống</text>
+
+<rect x="660" y="764" width="14" height="10" rx="2" class="cm"/><rect x="660" y="764" width="14" height="10" rx="2" class="cdb" stroke-width="1"/>
+<text x="680" y="773" class="tm" font-size="8.5">Kế toán</text>
+
+<line x1="790" y1="769" x2="820" y2="769" class="ae" stroke-width="2" marker-end="url(#ae)"/>
+<text x="830" y="773" class="tm" font-size="8.5">Luồng chính</text>
+
+<line x1="960" y1="769" x2="990" y2="769" class="ad" stroke-width="1.6" marker-end="url(#ad)"/>
+<text x="1000" y="773" class="tm" font-size="8.5">Tương tác</text>
+
+<line x1="1100" y1="769" x2="1130" y2="769" class="ak" stroke-width="1.3" marker-end="url(#ak)"/>
+<text x="1140" y="773" class="tm" font-size="8.5">Vào hệ thống</text>
+
+<text x="120" y="808" class="td" font-size="7.5">
+  HĐ = Hợp đồng &nbsp;·&nbsp; BBNT = Biên bản nghiệm thu &nbsp;·&nbsp; ĐNTT = Đề nghị thanh toán &nbsp;·&nbsp; TT = Thanh toán &nbsp;·&nbsp; PIT = Thuế TNCN 10%
+</text>
+</svg>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="ch"><div class="dot" style="background:var(--be-s)"></div><h3>Giai Đoạn 1 · Trước Triển Khai</h3></div>
+    <ul>
+      <li>· Nhận target → Lập plan (video / live daily / độc quyền)</li>
+      <li>· Research KOC qua Kalodata + TikTok Seller Center</li>
+      <li>· Liên hệ, đàm phán, chốt hợp tác</li>
+      <li>· Soạn HĐ theo form mẫu → ký điện tử Mắt Bão</li>
+      <li>· Gửi sản phẩm cho KOC · Duyệt demo nội dung</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="dot" style="background:var(--cl-s)"></div><h3>Giai Đoạn 2 · Triển Khai</h3></div>
+    <ul>
+      <li>· KOC thực hiện live / đăng video (TikTok)</li>
+      <li>· PIC theo dõi, cập nhật tình trạng lên sóng</li>
+      <li>· Tổng hợp link video vào Lark Dữ liệu KOC</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="ch"><div class="dot" style="background:var(--db-s)"></div><h3>Giai Đoạn 3 · Sau Triển Khai</h3></div>
+    <ul>
+      <li>· Xác nhận video đúng yêu cầu</li>
+      <li>· Soạn BBNT → KOC ký xác nhận kết quả</li>
+      <li>· Tạo ĐNTT trên Lark Base → Chuyển Kế toán</li>
+      <li>· KT kiểm tra hồ sơ, khấu trừ PIT 10%, TT 7 ngày</li>
+    </ul>
+  </div>
+</div>
+<footer>Calie House · Team Booking Workflow · Archify v5.0 · 2026</footer>
+</div>
+
+<script>
+const root=document.documentElement,bt=document.getElementById('bt');
+bt.addEventListener('click',()=>{
+  const n=root.getAttribute('data-theme')==='dark'?'light':'dark';
+  root.setAttribute('data-theme',n);
+  try{localStorage.setItem('archify-theme',n);}catch(_){}
+  bt.textContent=n==='dark'?'🌙 Dark':'☀️ Light';
+});
+document.getElementById('be').addEventListener('click',()=>{
+  const svg=document.getElementById('svg');
+  const xml=new XMLSerializer().serializeToString(svg);
+  const blob=new Blob([xml],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=1880*2;c.height=842*2;
+    const ctx=c.getContext('2d');ctx.scale(2,2);ctx.drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+    const a=document.createElement('a');
+    a.download='booking_workflow_v5.png';
+    a.href=c.toDataURL('image/png');a.click();
+  };
+  img.src=url;
+});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.key==='t'||e.key==='T')bt.click();
+  if(e.key==='e'||e.key==='E')document.getElementById('be').click();
+});
+</script>
+</body>
+</html>

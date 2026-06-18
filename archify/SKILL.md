@@ -1,236 +1,573 @@
 ---
 name: archify
-description: Create professional architecture, workflow, sequence, data-flow, and lifecycle/state diagrams as standalone HTML files with SVG graphics, a built-in dark/light theme toggle, and one-click export to PNG / JPEG / WebP / SVG. Accepts plain-language descriptions or pasted Mermaid code (flowchart, sequenceDiagram, stateDiagram) and lays the diagram out from scratch in archify style. Use when the user asks for system architecture diagrams, infrastructure diagrams, cloud architecture visualizations, security diagrams, network topology, technical workflows, approval flows, runbooks, CI/CD flows, process diagrams, API call sequences, request lifecycles, data pipelines, ETL/ELT maps, PII boundaries, data lineage, state machines, lifecycle diagrams, status transitions, or asks to convert/beautify a Mermaid diagram.
+description: Generate beautiful, professional architecture and technical diagrams as standalone HTML files with dark/light theme toggle and PNG/JPEG/WebP/SVG export. Use this skill whenever the user asks for: system architecture diagrams, infrastructure diagrams, cloud architecture (AWS/GCP/Azure), microservices diagrams, technical workflow diagrams, approval flows, CI/CD pipelines, runbooks, incident response flows, API call sequences, data pipeline diagrams, ETL/ELT maps, state machine diagrams, lifecycle diagrams, or asks to "draw", "visualize", "diagram", "chart", "map out" any technical system or process. Also use when user wants to convert or beautify a Mermaid diagram. Always prefer this over plain SVG or Mermaid when the user wants a polished, exportable diagram.
 license: MIT
 metadata:
-  version: "2.6"
+  version: "5.0"
   author: tt-a1i
   based_on: Cocoon-AI/architecture-diagram-generator (MIT, v1.0)
+  changelog: "v5.0 — Added QG8 breathing room & arrow visibility (min gap 60px, recommended 80px)"
 ---
 
 # Archify Skill
 
-Create professional technical diagrams as self-contained HTML files with inline SVG, a theme toggle, and a built-in image/SVG export menu.
+Create professional technical diagrams as **self-contained HTML files** with inline SVG, a dark/light theme toggle, and a built-in export menu (PNG / JPEG / WebP / SVG at up to 4× resolution).
 
-Every diagram ships with a **dark/light theme toggle** (persists in `localStorage`, respects `prefers-color-scheme`), an **export menu** (copy PNG to clipboard; download PNG/JPEG/WebP rasterized natively at up to 4× resolution; download a **dual-theme SVG** that follows the embedding host's `prefers-color-scheme` — ideal for GitHub READMEs), and a **CSS-variable color system** that keeps both themes consistent.
+## Quick Start
 
-## Setup (one-time, renderer modes only)
+1. Read the description → pick diagram type (see table below)
+2. Build the SVG directly into `assets/template.html` following the Design System
+3. Run the mandatory Self-Review Checklist — **all 7 Quality Gates must pass**
+4. Deliver the finished HTML file
 
-The four typed renderers validate JSON against schemas via `ajv`. From this skill's folder:
+> **No Node.js renderers available in this environment.** Always use the hand-placed SVG approach with `assets/template.html` as base.
 
-```bash
-npm install
+---
+
+## Diagram Type Selection
+
+| Type | Use for | Key signal words |
+|------|---------|-----------------|
+| `architecture` | System components, cloud resources, services, security boundaries | "architecture", "system", "infrastructure", "cloud", "microservices" |
+| `workflow` | Technical flows, approval gates, CI/CD, runbooks, incident response | "workflow", "flow", "process", "approval", "CI/CD", "pipeline" |
+| `sequence` | API call chains, request lifecycles, cache fallback, async traces | "sequence", "call chain", "who calls whom", "request lifecycle" |
+| `dataflow` | Data pipelines, ETL/ELT, PII isolation, data lineage | "data flow", "pipeline", "ETL", "lineage", "PII", "data map" |
+| `lifecycle` | State machines, status transitions, retries, terminal states | "state", "lifecycle", "status", "state machine", "retry" |
+
+---
+
+## ⚠️ FOUR QUALITY GATES — Must pass before delivering
+
+These fix the four most common diagram failures. Check all four before output.
+
+---
+
+### Quality Gate 1 — Arrow Connection Accuracy
+
+**Rule: Every arrow must originate from and terminate at the exact edge midpoint of its source and target box.**
+
+SVG arrows have no awareness of box geometry. You must calculate edge coordinates manually using box `x`, `y`, `width`, `height`:
+
+```
+Box edge midpoints (given rect at x, y, width w, height h):
+  left-center:   (x,         y + h/2)
+  right-center:  (x + w,     y + h/2)
+  top-center:    (x + w/2,   y)
+  bottom-center: (x + w/2,   y + h)
 ```
 
-Without it the renderers still run — they print a warning and skip schema validation, keeping their own layout checks. The **generated HTML never has dependencies**; only the renderers do.
+**Workflow: For every edge you draw:**
+1. Identify exit side on source box → compute (x1, y1)
+2. Identify enter side on target box → compute (x2, y2)
+3. Write those computed values into `x1=` `y1=` `x2=` `y2=`
 
-If you have no shell access at all (e.g. the skill was added as project knowledge), fall back to architecture mode for every request: hand-place SVG into `assets/template.html` following the Design System below, and run the self-review checklist before delivering.
+**NEVER estimate arrow coordinates by eye.** If a box is at x=120, width=110, the right edge is exactly x=230, not approximately 225 or 240.
 
-## Choosing a Diagram Type
-
-| Type | Use for | How |
-|------|---------|-----|
-| `architecture` | System components, cloud resources, services, security boundaries, infrastructure | `renderers/architecture/render-architecture.mjs` + JSON (or hand-place SVG when renderers can't run) |
-| `workflow` | Technical flows, approval gates, tool calls, runbooks, CI/CD, incident response | `renderers/workflow/render-workflow.mjs` + JSON |
-| `sequence` | API call chains, request lifecycles, cache fallback, async traces, return paths | `renderers/sequence/render-sequence.mjs` + JSON |
-| `dataflow` | Pipelines, ETL/ELT, PII isolation, lineage, warehouse sync, consumers | `renderers/dataflow/render-dataflow.mjs` + JSON |
-| `lifecycle` | State machines, status transitions, wait states, retries, terminal states | `renderers/lifecycle/render-lifecycle.mjs` + JSON |
-
-Trigger phrases: "architecture/system/cloud diagram" → `architecture` (unless clearly process-oriented). "workflow/flow/process/runbook/approval/CI-CD/incident" → `workflow`. "sequence/interaction/call chain/who calls whom" → `sequence`. "data flow/pipeline/ETL/lineage/PII/governance" → `dataflow`. "state/status/lifecycle/state machine/retry/terminal" → `lifecycle`.
-
-## Mermaid as an Input Dialect
-
-When the user pastes Mermaid code, do NOT try to render or parse it mechanically — read it for structure and **lay out from scratch** in the matching archify mode:
-
-| Mermaid | Archify mode | Mapping |
-|---------|--------------|---------|
-| `flowchart` / `graph` | `workflow` (or `architecture` if it's a component map) | `subgraph` → lane or region boundary; node shape `{}` (diamond) → decision/security node; `-->` labels → edge labels (use sparingly); `classDef`/`style` → nearest semantic type |
-| `sequenceDiagram` | `sequence` | `participant` → participants (pick semantic `type` from the name); `->>` → message, `-->>` → `return` variant; `Note` → message `note`; `rect` blocks → segments |
-| `stateDiagram` | `lifecycle` | states → states (pick `start`/`active`/`waiting`/`success`/`failure` from names); `[*]` start/end → `start` type / `terminal` lane; transition labels → event-like labels |
-
-Drop Mermaid styling; keep only the topology and meaning. You choose grouping, lane order, and what deserves emphasis — that judgment is the product.
-
-## Renderer Modes (workflow / sequence / dataflow / lifecycle)
-
-All four modes follow the same loop:
-
-1. **Read first**: the schema (`schemas/<type>.schema.json`) and the complete worked example (`examples/*.{workflow,sequence,dataflow,lifecycle}.json`) — copy its patterns instead of guessing field shapes.
-2. Write `<name>.<type>.json`.
-3. Render: `node renderers/<type>/render-<type>.mjs <input>.json <output>.html` (paths relative to this skill's folder).
-4. If it fails, the error names the JSON path or the fix (thresholds, valid ranges, which knob to change). Fix the JSON and re-run; never edit the renderer.
-
-Schema violations exit non-zero with path-prefixed messages like `/nodes/3 (id/label: "router") must NOT have additional properties`. The renderers additionally fail fast on layout problems: node/state overlap (including cross-lane), labels colliding with nodes or other labels, labels wider than their node, out-of-range columns/rows, too-short edges, and legends outside the viewBox. CJK text is measured at double width automatically.
-
-### Workflow
-
-```json
-{
-  "schema_version": 1,
-  "diagram_type": "workflow",
-  "meta": { "title": "Release Workflow", "subtitle": "PR to production", "output": "release.html" },
-  "lanes": [ { "id": "dev", "label": "Developer" }, { "id": "ci", "label": "CI" } ],
-  "nodes": [
-    { "id": "pr", "lane": "dev", "col": 0, "type": "frontend", "label": "Open PR", "sublabel": "feature branch" },
-    { "id": "build", "lane": "ci", "col": 1, "type": "backend", "label": "Build", "sublabel": "lint + test", "tag": "blocking" }
-  ],
-  "edges": [
-    { "from": "pr", "to": "build", "label": "webhook", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "drop" }
-  ],
-  "cards": []
-}
-```
-
-**Layout budget**: 6 columns (`col` 0–5) at fixed x positions `[88, 220, 300, 430, 500, 625]` — columns 1↔2 and 3↔4 are only 70–80px apart, so default-width (92px) nodes in those adjacent columns of the same lane overlap; skip a column or shrink `width`. Lane content width is 640px. Omit `meta.viewBox` — the renderer sizes height to the lane count automatically. Edge routes: `straight`, `drop` (bend between lanes; `bias` 0–1 picks where), `outside-right`, `return-left`, `bottom-channel`, `up-channel`, or explicit `via` points. Keep adjacent-step edges unlabeled; reserve labels for cross-lane transitions, approvals, async writes, and returns.
-
-### Sequence
-
-```json
-{
-  "schema_version": 1,
-  "diagram_type": "sequence",
-  "meta": { "title": "Cache Miss Request", "subtitle": "auth and cache fallback", "output": "cache-miss.html" },
-  "participants": [
-    { "id": "web", "type": "frontend", "label": "Web App", "sublabel": "React UI" },
-    { "id": "api", "type": "backend", "label": "API", "sublabel": "handler" }
-  ],
-  "segments": [ { "from": 160, "to": 320, "label": "01 / AUTH" } ],
-  "messages": [
-    { "from": "web", "to": "api", "y": 200, "label": "GET /data", "variant": "emphasis" },
-    { "from": "api", "to": "web", "y": 290, "label": "200 JSON", "variant": "return" }
-  ],
-  "activations": [ { "participant": "api", "from": 190, "to": 300, "type": "backend" } ],
-  "cards": []
-}
-```
-
-**Layout budget**: participants sit at x = 62 + index×108, so a 920-wide viewBox fits at most 8. Message `y` must stay within `[160, viewBox_height − 83]`; messages that share horizontal space need ≥28px vertical separation; arrows need ≥60px horizontal span. `segments[].from/to` and `activations[].from/to` are **y pixel coordinates**, not participant ids. A taller `meta.viewBox` (default `[920, 760]`) buys more timeline room. Keep labels short: "GET /path", "verify JWT", "cache miss", "200 JSON".
-
-### Dataflow
-
-```json
-{
-  "schema_version": 1,
-  "diagram_type": "dataflow",
-  "meta": { "title": "Product Analytics", "subtitle": "events to consumers", "output": "analytics.html" },
-  "stages": [ { "label": "Sources" }, { "label": "Ingest" }, { "label": "Store" } ],
-  "nodes": [
-    { "id": "web", "type": "frontend", "label": "Web App", "stage": 0, "row": 0, "sublabel": "clickstream" },
-    { "id": "kafka", "type": "messagebus", "label": "Kafka", "stage": 1, "row": 0, "tag": "accepted events" }
-  ],
-  "flows": [
-    { "from": "web", "to": "kafka", "label": "events", "classification": "PII touch", "variant": "emphasis" }
-  ],
-  "cards": []
-}
-```
-
-**Layout budget**: 2–5 stages at x = 100 + stage×215; 5 rows (`row` 0–4) at y `[128, 242, 356, 470, 584]`; default node 112×58. Default viewBox `[940, 720]`. Flow labels are mandatory and asset-like ("clickstream", "identity map", "feature vectors"); put sensitivity in `classification` ("PII touch", "approved only", "non-PII"). Variants: `emphasis` = primary path, `security` = PII/policy/consent, `dashed` = async/batch.
-
-### Lifecycle
-
-```json
-{
-  "schema_version": 1,
-  "diagram_type": "lifecycle",
-  "meta": { "title": "Agent Run Lifecycle", "subtitle": "states and terminal outcomes", "output": "agent-run.html" },
-  "lanes": [
-    { "id": "main", "label": "Lifecycle phases" },
-    { "id": "waiting", "label": "Interruptions" },
-    { "id": "terminal", "label": "Terminal exits" }
-  ],
-  "states": [
-    { "id": "queued", "type": "start", "label": "Queued", "lane": "main", "col": 0, "step": "01" },
-    { "id": "running", "type": "active", "label": "Executing", "lane": "main", "col": 2, "step": "02" },
-    { "id": "approval", "type": "waiting", "label": "Needs Approval", "lane": "waiting", "col": 0 },
-    { "id": "done", "type": "success", "label": "Completed", "lane": "terminal", "col": 2 }
-  ],
-  "transitions": [
-    { "from": "queued", "to": "running", "variant": "emphasis" },
-    { "from": "running", "to": "approval", "label": "needs approval", "variant": "security", "fromSide": "bottom", "toSide": "right" },
-    { "from": "running", "to": "done", "label": "success", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" }
-  ],
-  "cards": []
-}
-```
-
-**Layout budget — lane ids are semantic and reserved**: `main` is required and maps to the top phase band (cols 0–4); `terminal` maps to the bottom outcome band (cols 0–2); **every other lane id shares the single middle event band** (cols 0–2) — separate same-band states with different `col` or `yOffset`. Band headers render from your lane labels. Default viewBox `[980, 660]`. Keep transition labels event-like and sparse ("retry", "timeout", "cancel"); prefer state `tag`s, `step` numbers, and summary cards over label-heavy arrows. Put terminal states in the `terminal` lane so endings are unambiguous.
-
-### Per-mode deep guidance
-
-Each renderer has a README with its full design language (route presets, semantic types, story guidance): `renderers/workflow/README.md`, `renderers/sequence/README.md`, `renderers/dataflow/README.md`, `renderers/lifecycle/README.md`. Read the matching one before your first diagram of that mode in a session.
-
-## Architecture Mode
-
-Architecture has the same read-schema-then-render loop as the other modes — prefer it. Hand-placed SVG is the fallback for when renderers can't run.
-
-```json
-{
-  "schema_version": 1,
-  "diagram_type": "architecture",
-  "meta": { "title": "Sample Web App", "subtitle": "3-tier SaaS on AWS", "output": "web-app.html" },
-  "components": [
-    { "id": "users", "type": "external", "label": "Users", "sublabel": "Browser", "pos": [40, 300] },
-    { "id": "api", "type": "backend", "label": "API Server", "sublabel": "FastAPI :8000", "pos": [460, 300] },
-    { "id": "db", "type": "database", "label": "PostgreSQL", "sublabel": ":5432", "pos": [680, 300] }
-  ],
-  "boundaries": [
-    { "kind": "region", "label": "AWS us-west-2", "wraps": ["api", "db"] }
-  ],
-  "connections": [
-    { "from": "users", "to": "api", "label": "HTTPS", "variant": "emphasis" },
-    { "from": "api", "to": "db", "label": "SQL" }
-  ],
-  "cards": []
-}
-```
-
-Render: `node renderers/architecture/render-architecture.mjs <input>.json <output>.html`.
-
-**The renderer does the mechanical work that used to be hand-tuned**, so you only choose coordinates and meaning:
-
-- **Free coordinates** — `pos: [x, y]` is the component's top-left; `size: [w, h]` defaults to `[120, 60]`. Unlike the typed modes there is no lane/stage grid — asymmetric placement is yours to choose. `meta.viewBox` is optional (auto-fitted to your components + a legend row).
-- **Boundaries from `wraps`** — list the component ids a `region` (dashed amber) or `security-group` (dashed rose) encloses; the renderer computes the box with correct 30/50 padding automatically. Never hand-arithmetic a boundary again.
-- **Connections** route like edges (`variant`, `fromSide`/`toSide`, `route: straight|orthogonal-h|orthogonal-v|auto`, `via`, `labelDx/labelDy/labelAt`). For a vertical labeled connection, push the label into the gap with `labelDy` (the validator will tell you if it lands on a box).
-- The renderer auto-emits the two-rect `c-mask` pattern, draws arrows before boxes (z-order), builds the legend from the component types you used, and **fails fast on component overlap, off-canvas components/boundaries, unknown wraps/connection ids, label-vs-component collisions, and non-finite coordinates** — the same reliability the other four modes already had.
-
-### Hand-placed fallback (no renderer available)
-
-When Node/ajv can't run, copy `assets/template.html` and place SVG by hand. Study the worked diagram inside the template and `examples/web-app.html` for coordinate idioms, follow the Design System below, and run the self-review checklist before delivering.
-
-### The Cardinal Rule: CSS classes, not inline colors
-
-The theme toggle works by switching CSS custom properties. Hardcoded `fill="rgba(...)"` or `stroke="#22d3ee"` will NOT update on theme change. Always use the class system:
+For `<line>` arrows ending with `marker-end`, shorten x2/y2 by 8px in the arrow direction so the line ends just before the arrowhead polygon:
 
 ```svg
-<rect x="X" y="Y" width="W" height="H" rx="6" class="c-mask"/>
-<rect x="X" y="Y" width="W" height="H" rx="6" class="c-backend" stroke-width="1.5"/>
-<text x="CX" y="CY" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">API Server</text>
-<text x="CX" y="CY+16" class="t-muted" font-size="9" text-anchor="middle">FastAPI :8000</text>
+<!-- Box B: x=300 y=100 w=110 h=50  → left edge = x=300, y=125 -->
+<!-- Box A: x=120 y=100 w=110 h=50  → right edge = x=230, y=125 -->
+<!-- Arrow A→B, horizontal: shorten x2 by 8 (arrowhead offset) -->
+<line x1="230" y1="125" x2="292" y2="125"
+      class="a-emphasis" stroke-width="1.5"
+      marker-end="url(#arrowhead-emphasis)"/>
 ```
 
-### Design system
+For diagonal or multi-bend paths, use `<path>` with computed waypoints and shorten the last segment endpoint by 8px.
 
-Component fills `c-frontend` (clients/UI), `c-backend` (services/APIs), `c-database` (stores/caches), `c-cloud` (managed infra), `c-security` (auth/secrets), `c-messagebus` (Kafka/queues), `c-external` (3rd parties); text accents `t-<same>` plus neutrals `t-primary` / `t-muted` / `t-dim`. Arrows `a-default`, `a-emphasis` (hot path), `a-security` (dashed), `a-dashed` (async) — always set `stroke-width` and pair `marker-end="url(#arrowhead[-variant])"` with the matching class. Boundaries: `c-security-group` (dashed rose), `c-region` (dashed amber), `c-lane` (swimlane).
+---
 
-Typography inherits JetBrains Mono from the SVG root. Sizes: 11–12px component names, 9px sublabels, 8px annotations, 7px tiny labels.
+### Quality Gate 2 — Uniform Node Size Per Row
 
-### Hard layout rules
+**Rule: All nodes in the same swimlane row or architectural tier must share identical `width` and `height`.**
 
-- **Two-rect pattern everywhere**: opaque `c-mask` rect first, styled `c-<type>` rect on top — semi-transparent fills otherwise let arrows bleed through.
-- **Arrows before components** in document order (SVG paints in order; arrows must sit behind boxes).
-- **Vertical stacking**: ≥40px gap between components; inline connectors (message buses, 20px tall) live inside the gap, never overlapping boxes.
-- **Boundary padding**: boundary `y` = inner `y` − 30, boundary `height` = inner `height` + 50, label baseline 18px below the boundary top.
-- **Legend placement**: outside ALL boundary boxes, ≥20px below the lowest one; grow the viewBox if needed.
+Nodes that look different sizes in the same row break visual rhythm and signal careless layout. The rule:
 
-### Self-review checklist (run before delivering)
+- Before placing nodes, decide ONE standard box size per lane/tier: e.g., `width=110 height=50`
+- Apply that size to every node in that lane
+- Only deviate if a node has significantly more text lines (then use a larger STANDARD size for that lane, applied uniformly)
+- START/END terminal nodes may use a rounded-pill shape (`rx=height/2`) but must still use a consistent width
 
-1. `grep -E 'fill="(#|rgb)|stroke="(#|rgb)' out.html` inside the SVG returns nothing except the template's own defs (Cardinal Rule).
-2. Every `c-<type>` rect has an identical-geometry `c-mask` rect immediately before it.
-3. All `<line>`/`<path>` arrows appear before all component rects in document order.
-4. Compute max(y + height) over all SVG elements: viewBox height must exceed it by ≥20px; same for x/width.
-5. Legend y is below every boundary's y + height.
-6. The `.toolbar`, `<script>` blocks, and `:root` / `[data-theme]` CSS are untouched — they ARE the theme toggle and export menu.
+**Sizing tiers (pick one per lane, apply uniformly):**
 
-## Output
+| Lane complexity | Recommended size |
+|----------------|-----------------|
+| Single-line label | `width=100 height=36` |
+| Two-line label (name + subtitle) | `width=110 height=50` |
+| Three-line label | `width=120 height=62` |
 
-A single self-contained `.html`: embedded CSS (Google Fonts loads async and degrades to system monospace offline), inline SVG, ~19KB embedded JS for theme + export. It renders directly in any modern browser. Raster exports render natively at up to 4× the viewBox (large diagrams step down to 3×/2× to stay under canvas limits); the SVG download is dual-theme self-contained and follows the host's `prefers-color-scheme` (manual override via `svg[data-theme="..."]`).
+**Example — correct uniform sizing in a swimlane:**
+```svg
+<!-- All nodes in Lane 1 use width=110 height=50 -->
+<rect x="90"  y="115" width="110" height="50" rx="6" class="c-mask"/>
+<rect x="90"  y="115" width="110" height="50" rx="6" class="c-backend" stroke-width="1.5"/>
+
+<rect x="250" y="115" width="110" height="50" rx="6" class="c-mask"/>
+<rect x="250" y="115" width="110" height="50" rx="6" class="c-backend" stroke-width="1.5"/>
+
+<rect x="410" y="115" width="110" height="50" rx="6" class="c-mask"/>
+<rect x="410" y="115" width="110" height="50" rx="6" class="c-backend" stroke-width="1.5"/>
+```
+
+---
+
+### Quality Gate 3 — Arrow Layering (No Arrows Over Nodes)
+
+**Rule: All arrows/paths MUST appear in SVG document order BEFORE all node `<rect>` and `<text>` groups.**
+
+SVG paints elements in document order — later elements render on top. Arrows written after nodes will overdraw box fills and text, making the diagram unreadable.
+
+**Mandatory document order:**
+```
+1. <defs> (markers, patterns)
+2. Background grid rect
+3. Swimlane / boundary rects  ← lanes drawn first
+4. ALL <line> and <path> arrows  ← arrows before everything
+5. ALL node groups (c-mask rect + c-type rect + text)  ← nodes on top
+6. Lane label texts (rotated)
+7. Phase header bars
+8. Legend block
+```
+
+**NEVER** place a `<line>` or `<path>` arrow after a node group — even for "just one connection added later". If you need to add an arrow, insert it into the arrows section, not at the end of the SVG.
+
+The two-rect (`c-mask` + `c-type`) pattern ensures the opaque mask hides any arrow that passes behind the node, so the arrow appears to cleanly terminate at the box edge.
+
+---
+
+### Quality Gate 4 — Legend Separation
+
+**Rule: The legend block must be visually separated from the diagram content with ≥40px clearance and a distinct background.**
+
+A legend merged into the diagram content area confuses readers. Requirements:
+
+1. **Vertical gap**: legend top ≥ (lowest diagram element bottom + 40px)
+2. **Background panel**: legend must have its own `c-mask` + `c-external` rect background (not just floating text)
+3. **Internal padding**: legend content starts ≥12px inside the panel edges
+4. **Legend height**: panel height ≥ 56px (enough for items + footnote)
+5. **viewBox extension**: extend viewBox height to accommodate legend + 20px bottom margin
+
+**Legend template:**
+```svg
+<!-- Legend panel — placed AFTER all diagram content -->
+<!-- legendY = (lowest element bottom) + 40 -->
+<rect x="80" y="[legendY]"    width="[W-100]" height="60" rx="6" class="c-mask"/>
+<rect x="80" y="[legendY]"    width="[W-100]" height="60" rx="6" class="c-external" stroke-width="1"/>
+
+<!-- Color swatches row at legendY+14 -->
+<rect x="100" y="[legendY+14]" width="14" height="10" rx="2" class="c-mask"/>
+<rect x="100" y="[legendY+14]" width="14" height="10" rx="2" class="c-backend" stroke-width="1"/>
+<text x="120" y="[legendY+23]" class="t-muted" font-size="8">Team / PIC</text>
+
+<!-- ... more swatches at +130px intervals ... -->
+
+<!-- Arrow style samples at legendY+14, after color swatches -->
+<line x1="[lx]"    y1="[legendY+19]" x2="[lx+22]" y2="[legendY+19]"
+      class="a-emphasis" stroke-width="1.5" marker-end="url(#arrowhead-emphasis)"/>
+<text x="[lx+26]" y="[legendY+23]" class="t-muted" font-size="8">Primary flow</text>
+
+<!-- Footnote at legendY+44 -->
+<text x="100" y="[legendY+44]" class="t-dim" font-size="7">
+  HĐ = Hợp đồng  ·  BBNT = Biên bản nghiệm thu  ·  ĐNTT = Đề nghị thanh toán
+</text>
+```
+
+---
+
+### Quality Gate 5 — No Node Overlap
+
+**Rule: No two nodes may overlap each other. Every node must have clear whitespace separation on all sides.**
+
+Overlapping nodes are the most common layout defect from manually placed SVG coordinates. They occur when spacing is not calculated before placement.
+
+**Before placing any node, compute its bounding box and verify it does not intersect any existing node:**
+
+```
+Node bounding box:  left = cx - w/2,  right = cx + w/2,  top = cy - h/2,  bottom = cy + h/2
+Minimum clearance:  ≥16px horizontal gap,  ≥12px vertical gap between any two nodes
+```
+
+**Spacing calculation workflow — do this before writing any node SVG:**
+
+1. Fix a standard node size per lane (e.g., w=110, h=50)
+2. Fix a horizontal step = node_w + gap (e.g., 110 + 20 = 130px between centers)
+3. Fix a vertical step = node_h + gap (e.g., 50 + 30 = 80px between rows)
+4. List all cx values for a lane: cx₁, cx₁+130, cx₁+260 ...
+5. Verify: cx_n - cx_{n-1} ≥ node_w + 16 for every adjacent pair
+
+**Common mistake to avoid:**
+
+```svg
+<!-- WRONG ❌ — nodes overlap: second node starts at 200, first ends at 210 -->
+<rect x="100" y="100" width="110" height="50"/>  <!-- right edge = 210 -->
+<rect x="200" y="100" width="110" height="50"/>  <!-- left edge = 200 — OVERLAP -->
+
+<!-- CORRECT ✅ — gap of 20px between nodes -->
+<rect x="100" y="100" width="110" height="50"/>  <!-- right edge = 210 -->
+<rect x="230" y="100" width="110" height="50"/>  <!-- left edge = 230 — 20px clear -->
+```
+
+**For swimlane layouts, nodes in different lanes at the same column must also not overlap vertically:** lane top + padding ≥ previous lane bottom.
+
+---
+
+### Quality Gate 6 — Arrow Completeness & Shape Semantics
+
+#### 6A — Every Arrow Must Connect Two Nodes
+
+**Rule: Every `<line>` or `<path>` arrow must have both endpoints connected to a node. Dangling arrows (one end floating in empty space) are forbidden.**
+
+Before writing each arrow, verify:
+- `(x1, y1)` lies exactly on an edge midpoint of a **source node** (computed from that node's coordinates)
+- `(x2, y2)` lies exactly on an edge midpoint of a **target node** (computed, minus 8px arrowhead offset)
+- Both source and target nodes are defined in this diagram — no arrows pointing to empty space
+
+**Arrow completeness checklist (run per arrow):**
+```
+Source node ID:   _____________   exit side: top / bottom / left / right
+Target node ID:   _____________   enter side: top / bottom / left / right
+x1 computed as:   source.cx ± source.w/2   OR   source.cx, source.cy ± source.h/2
+x2 computed as:   target.cx ± target.w/2   OR   target.cx, target.cy ± target.h/2  − 8px offset
+```
+
+If either node ID is blank → **do not draw the arrow**.
+
+#### 6B — Use Correct Flowchart Shape Semantics
+
+**Rule: Use the standard flowchart shape for each node type. Never use a plain rectangle for start/end or decision nodes.**
+
+| Node type | Shape | SVG implementation |
+|-----------|-------|--------------------|
+| **Start / End** | Oval / pill (rounded ends) | `<rect rx="height/2">` — fully rounded |
+| **Process / Step** | Rectangle | `<rect rx="6">` — lightly rounded corners |
+| **Decision** | Diamond | `<polygon points="cx,top  right,cy  cx,bottom  left,cy">` |
+| **Input / Output** | Parallelogram | `<polygon>` with skewed x offsets |
+| **Document / File** | Rectangle + wavy bottom | `<path>` with sine-curve bottom edge |
+
+Minimum rule: **Start and End nodes must always use pill shape** (`rx = height/2`). Decision nodes that branch the flow must use diamond shape.
+
+```svg
+<!-- START node: pill shape -->
+<rect x="[cx-50]" y="[cy-18]" width="100" height="36" rx="18" class="c-mask"/>
+<rect x="[cx-50]" y="[cy-18]" width="100" height="36" rx="18" class="c-backend" stroke-width="1.5"/>
+
+<!-- DECISION node: diamond -->
+<rect x="[cx-40]" y="[cy-40]" width="80" height="80" rx="4" class="c-mask"/>  <!-- mask as bounding box -->
+<polygon points="[cx],[cy-38]  [cx+38],[cy]  [cx],[cy+38]  [cx-38],[cy]"
+         class="c-security" stroke-width="1.5"/>
+```
+
+---
+
+### Quality Gate 7 — Alignment & Equal Spacing
+
+**Rule: Nodes in the same row must share the same center-Y. Nodes in the same column must share the same center-X. Spacing between adjacent nodes must be equal within a lane.**
+
+From flowchart best practice: *misaligned or unequally spaced symbols make a diagram look messy and hard to follow.*
+
+**Requirements:**
+
+1. **Row alignment**: all nodes in the same horizontal flow → identical `cy` value. Never offset one node 3px up or down from its neighbors.
+
+2. **Column alignment**: nodes that are vertically stacked across lanes → identical `cx` value. This makes vertical arrows perfectly straight (no diagonal drift).
+
+3. **Equal spacing**: the gap between node A right-edge and node B left-edge must equal the gap between node B right-edge and node C left-edge within the same lane row.
+   ```
+   gap_AB = (cx_B - w/2) - (cx_A + w/2)
+   gap_BC = (cx_C - w/2) - (cx_B + w/2)
+   gap_AB must equal gap_BC  (±2px tolerance)
+   ```
+
+4. **Minimum spacing**: horizontal gap ≥ 16px; vertical gap between lanes ≥ 20px.
+
+5. **Flow direction**: primary flow reads **left → right** on the same row, then **top → bottom** across rows. Avoid rightward flows that suddenly go left unless explicitly a feedback/retry loop.
+
+**Pre-layout grid approach (recommended):**
+```
+Define column centers:  colX[] = [LABEL_W + node_w/2 + col_i * (node_w + gap)]
+Define row centers:     rowY[] = [lane_top + lane_h/2]  (one row per lane, or explicit if multi-row)
+Place every node at (colX[i], rowY[j]) — never deviate without a documented reason
+```
+
+---
+
+### Quality Gate 8 — Breathing Room & Arrow Visibility
+
+**Rule: Node spacing must be wide enough that arrows are clearly visible as distinct connectors — not just thin slivers between boxes.**
+
+The 16px minimum from QG5 is a collision floor, not a design target. Arrows that are too short look like errors or rendering artifacts.
+
+**Minimum spacing ratios:**
+
+| Context | Min gap between node edges | Recommended |
+|---------|---------------------------|-------------|
+| Horizontal (same row) | 48px | **60–80px** |
+| Vertical (same row, different rows) | 40px | **60–80px** |
+| Cross-lane vertical connectors | 30px per boundary | 40px+ |
+
+**Column step formula (use this, not QG5's 16px floor):**
+```
+col_step = node_width + h_gap
+
+h_gap = 60px minimum, 80px recommended
+col_step = 120 + 80 = 200px  ← use this as default for w=120 nodes
+
+Example column centers (LABEL_W=100, first node centered at 160):
+  col0=160, col1=360, col2=560, col3=760, col4=960, col5=1160 ...
+  edge gap = 200 - 120 = 80px ✓ — arrows will have ~72px visible length
+```
+
+**Row step formula:**
+```
+row_step = node_height + v_gap
+v_gap = 60px minimum
+
+Example: h=52, v_gap=60 → row_step=112
+  row1_cy = lane_top + top_pad + h/2  (top_pad ≥ 24px)
+  row2_cy = row1_cy + 112
+```
+
+**Lane height formula:**
+```
+single-row lane:  height = node_h + 2×padding  (padding ≥ 28px each side)  → h + 56 minimum
+two-row lane:     height = 2×node_h + v_gap + 2×padding                    → 2h + gap + 56
+```
+
+**Arrow minimum visible length — hard check before finalising:**
+```
+horizontal arrow visible length = gap - 8  (arrowhead offset)
+  must be ≥ 40px; if not → increase col_step
+
+vertical arrow visible length = gap - 8
+  must be ≥ 40px; if not → increase row_step or lane height
+```
+
+**Bad vs good example:**
+```
+BAD  (v4 style): col_step=144, node_w=120 → gap=24px → arrow only 16px visible ❌
+GOOD (v5 style): col_step=200, node_w=120 → gap=80px → arrow  72px visible ✓
+```
+
+ **Hardcoded `fill="#22d3ee"` will NOT update on theme change.**
+
+```svg
+<!-- WRONG ❌ -->
+<rect fill="rgba(6,78,59,0.4)" stroke="#34d399"/>
+
+<!-- CORRECT ✅ -->
+<rect class="c-mask"/>
+<rect class="c-backend" stroke-width="1.5"/>
+<text class="t-primary" font-size="11" font-weight="600">API Server</text>
+<text class="t-muted" font-size="9">FastAPI :8000</text>
+```
+
+---
+
+## Design System
+
+### Component Fill Classes
+| Class | Color | Use for |
+|-------|-------|---------|
+| `c-frontend` | Cyan | Clients, UI, browsers, mobile |
+| `c-backend` | Emerald | Services, APIs, workers |
+| `c-database` | Purple | Databases, caches, stores |
+| `c-cloud` | Amber | Managed cloud services, infrastructure |
+| `c-security` | Rose | Auth, secrets, firewalls, encryption |
+| `c-messagebus` | Orange | Kafka, RabbitMQ, SNS, queues |
+| `c-external` | Slate | 3rd parties, generic external |
+| `c-mask` | Opaque bg | Always placed BEFORE the styled rect |
+
+### Text Classes
+- `t-primary` — main labels
+- `t-muted` — sublabels, secondary info
+- `t-dim` — annotations, tiny hints
+- `t-frontend`, `t-backend`, `t-database`, `t-cloud`, `t-security`, `t-messagebus`, `t-external` — colored accent text
+
+### Arrow / Edge Classes
+| Class | Style | Use for |
+|-------|-------|---------|
+| `a-default` | Solid gray | Standard connections |
+| `a-emphasis` | Solid green | Hot paths, primary flows |
+| `a-security` | Dashed rose | Auth flows, PII, policy |
+| `a-dashed` | Dashed purple | Async, batch, optional |
+
+Always pair with `marker-end="url(#arrowhead)"` or `url(#arrowhead-emphasis)` etc.
+
+### Boundary Classes
+- `c-region` — dashed amber box
+- `c-security-group` — dashed rose box
+- `c-lane` — swimlane background
+
+### Typography
+- JetBrains Mono (falls back to system monospace)
+- Component names: `font-size="11"` with `font-weight="600"`
+- Sublabels: `font-size="9"` normal weight
+- Annotations / legend: `font-size="8"`
+- Footnotes: `font-size="7"`
+
+---
+
+## Hard Layout Rules
+
+1. **Two-rect pattern everywhere**: `c-mask` FIRST (identical geometry), then `c-<type>` on top.
+
+2. **Document order**: defs → grid → lanes → **arrows** → **nodes** → labels → legend. No exceptions.
+
+3. **Vertical stacking gap**: ≥40px between node rows. Message buses (20px tall) sit in gaps.
+
+4. **Boundary padding**: boundary `y` = inner component `y` − 30; boundary `height` = inner `height` + 50.
+
+5. **Legend clearance**: legend top = (max bottom of all nodes) + 40px minimum.
+
+6. **viewBox sizing**: viewBox height = legend bottom + 20px. viewBox width = rightmost element right + 20px.
+
+7. **Uniform sizing per row** (QG2): identical `width`/`height` for all nodes in the same lane.
+
+8. **Computed arrow endpoints** (QG1): every `x1 y1 x2 y2` derived from box coordinates, never guessed.
+
+9. **Breathing room** (QG8): horizontal gap between node edges ≥ 60px (recommended 80px); vertical gap ≥ 60px between rows. col_step = node_w + 80 minimum. Arrow visible length must be ≥ 40px after arrowhead offset.
+
+10. **Arrow completeness** (QG6A): every arrow connects two named nodes. No dangling endpoints.
+
+11. **Shape semantics** (QG6B): START/END = pill (`rx=h/2`), DECISION = diamond (`<polygon>`), PROCESS = rectangle.
+
+12. **Grid alignment** (QG7): all nodes in same row → identical `cy`; same column → identical `cx`; equal spacing within a lane.
+
+---
+
+## Workflow / Swimlane Full Pattern
+
+```svg
+<svg viewBox="0 0 1100 [legendBottom+20]" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" class="m-default"/>
+    </marker>
+    <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis"/>
+    </marker>
+    <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" class="m-dashed"/>
+    </marker>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- 1. Background -->
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+
+  <!-- 2. Swimlane backgrounds -->
+  <rect x="80" y="50"  width="1000" height="100" rx="0" class="c-lane" stroke-width="1"/>
+  <rect x="80" y="150" width="1000" height="100" rx="0" class="c-lane" stroke-width="1"/>
+
+  <!-- 3. ALL ARROWS — computed from box coordinates -->
+  <!--
+    NodeA: x=100 y=65  w=110 h=50  → right-center=(210, 90)
+    NodeB: x=270 y=65  w=110 h=50  → left-center=(270, 90)
+    Arrow A→B horizontal: x1=210 y1=90  x2=262 y2=90 (shorten 8px for arrowhead)
+  -->
+  <line x1="210" y1="90" x2="262" y2="90"
+        class="a-emphasis" stroke-width="1.5"
+        marker-end="url(#arrowhead-emphasis)"/>
+
+  <!-- 4. ALL NODES (mask + type rect + text) -->
+  <!-- NodeA -->
+  <rect x="100" y="65" width="110" height="50" rx="6" class="c-mask"/>
+  <rect x="100" y="65" width="110" height="50" rx="6" class="c-backend" stroke-width="1.5"/>
+  <text x="155" y="86" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Step 1</text>
+  <text x="155" y="102" class="t-muted" font-size="9" text-anchor="middle">Description</text>
+
+  <!-- NodeB -->
+  <rect x="270" y="65" width="110" height="50" rx="6" class="c-mask"/>
+  <rect x="270" y="65" width="110" height="50" rx="6" class="c-backend" stroke-width="1.5"/>
+  <text x="325" y="86" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Step 2</text>
+  <text x="325" y="102" class="t-muted" font-size="9" text-anchor="middle">Description</text>
+
+  <!-- 5. Lane labels -->
+  <text x="40" y="105" class="t-muted" font-size="9" font-weight="600"
+        text-anchor="middle" transform="rotate(-90,40,105)">Lane 1</text>
+
+  <!-- 6. Legend — gap ≥40px from lowest node bottom -->
+  <!-- Lowest node bottom = 200, so legendY = 240 minimum -->
+  <rect x="80" y="240" width="1000" height="56" rx="6" class="c-mask"/>
+  <rect x="80" y="240" width="1000" height="56" rx="6" class="c-external" stroke-width="1"/>
+  <rect x="100" y="254" width="14" height="10" rx="2" class="c-mask"/>
+  <rect x="100" y="254" width="14" height="10" rx="2" class="c-backend" stroke-width="1"/>
+  <text x="120" y="263" class="t-muted" font-size="8">Service</text>
+  <!-- Footnote -->
+  <text x="100" y="286" class="t-dim" font-size="7">Abbreviations and notes here</text>
+</svg>
+```
+
+---
+
+## Self-Review Checklist (v5.0)
+
+Run ALL checks. All must pass before delivering.
+
+**Quality Gate 1 — Arrow Connections:**
+- [ ] For every arrow, verify x1/y1 equals exact edge midpoint of source box (computed, not estimated)
+- [ ] For every arrow, verify x2/y2 equals exact edge midpoint of target box minus 8px arrowhead offset
+- [ ] No arrow coordinate is a round-number guess (e.g., "150" when box center is 155)
+
+**Quality Gate 2 — Uniform Node Sizing:**
+- [ ] All nodes in the same swimlane or tier have identical `width` and `height`
+- [ ] No node is visually wider or taller than its lane-peers without explicit justification
+
+**Quality Gate 3 — Arrow Layering:**
+- [ ] All `<line>` and `<path>` elements appear in SVG source BEFORE any `<rect class="c-mask">` node group
+- [ ] No arrow appears after a node group in document order
+
+**Quality Gate 4 — Legend Separation:**
+- [ ] Legend top ≥ (lowest diagram element bottom + 40px)
+- [ ] Legend has its own background panel (`c-mask` + `c-external` rect)
+- [ ] viewBox height = legend bottom + 20px
+
+**Quality Gate 5 — No Node Overlap:**
+- [ ] For every pair of adjacent nodes in the same lane: (cx_B - w/2) - (cx_A + w/2) ≥ 16px
+- [ ] For every pair of nodes in adjacent lanes at the same column: no vertical bounding box intersection
+- [ ] No node's bounding box intersects any arrow path's visual midpoint
+
+**Quality Gate 6 — Arrow Completeness & Shape Semantics:**
+- [ ] Every arrow's (x1,y1) is on the edge of a named source node
+- [ ] Every arrow's (x2,y2) is on the edge of a named target node — no dangling arrows
+- [ ] START and END nodes use pill shape (rx = height/2), not plain rectangles
+- [ ] Decision/branch nodes use diamond shape (`<polygon>`), not rectangles
+- [ ] No arrow exists whose source or target node is not defined in the diagram
+
+**Quality Gate 7 — Alignment & Equal Spacing:**
+- [ ] All nodes in the same horizontal row share identical `cy`
+- [ ] All nodes in the same vertical column share identical `cx`
+- [ ] Spacing between consecutive nodes in a lane is equal (±2px tolerance)
+- [ ] Primary flow direction is left→right within rows, top→bottom across rows
+- [ ] No node is offset from its row/column grid without an explicit reason
+
+**Quality Gate 8 — Breathing Room:**
+- [ ] col_step = node_width + h_gap where h_gap ≥ 60px (recommended 80px)
+- [ ] Every horizontal arrow visible length (gap − 8px offset) ≥ 40px
+- [ ] Every vertical arrow visible length ≥ 40px
+- [ ] Lane heights accommodate node_h + ≥56px padding (single row)
+
+**General:**
+- [ ] No hardcoded hex/rgba colors in SVG
+- [ ] Every `c-<type>` rect has identical-geometry `c-mask` before it
+- [ ] viewBox width/height exceed all element extents by ≥20px
+- [ ] `.toolbar`, `<script>`, `:root`/`[data-theme]` CSS untouched
+- [ ] Dark and light themes both render correctly
+
+
+---
+
+## Semantic Color Guide
+
+| Component | Class | Examples |
+|-----------|-------|---------|
+| Frontend | `c-frontend` | Browser, Mobile, SPA, CDN |
+| Backend | `c-backend` | API, Service, Worker, Lambda |
+| Database | `c-database` | PostgreSQL, Redis, S3, MongoDB |
+| Cloud | `c-cloud` | AWS/GCP/Azure services, Load Balancer |
+| Security | `c-security` | Auth, JWT, WAF, Secrets |
+| Message Bus | `c-messagebus` | Kafka, SQS, RabbitMQ |
+| External | `c-external` | 3rd party APIs, generic, legend panels |
